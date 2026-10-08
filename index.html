@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="pt"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Custom Cycle Works</title>
+<style>
+body{margin:0;background:#E8DCC8;color:#26221E;font:17px/1.4 Helvetica,Arial,sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:24px;margin:4px 0}h2{font-size:19px;margin:22px 0 6px}
+.sm{font-size:14px;opacity:.7}.ban{background:#26221E;color:#E8DCC8;padding:12px 16px;border-radius:6px;font-size:22px;font-weight:700;margin:10px 0}
+.cr{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1.5px solid #26221E44}.cr b{width:140px}
+.bar{flex:1;height:12px;border:1.5px solid #26221E;border-radius:6px;overflow:hidden}.bar i{display:block;height:100%}
+.sp{flex:1}.pc{width:44px;text-align:right}.lv{width:125px;font-size:15px}.dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:5px}
+.ph{font-size:13px;padding:2px 0 6px;opacity:.7}.info{font-size:15px;border:1.5px solid #26221E;border-radius:6px;padding:8px 12px;margin:8px 0}
+.rv{border-top:2px solid #26221E;padding:10px 0}
+.btn{display:block;text-align:center;background:#26221E;color:#E8DCC8;text-decoration:none;font-weight:700;padding:14px;border-radius:8px;margin:14px 0}
+.alert{background:#B03A2E;color:#fff;padding:12px 16px;border-radius:8px;margin:10px 0}.alert a{color:#fff;font-weight:700}
+.gal{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.gal img{width:96px;height:96px;object-fit:cover;border-radius:6px;background:#26221E22;cursor:pointer}
+summary{cursor:pointer;font-size:14px}
+.bikeph{width:100%;max-height:260px;object-fit:cover;border-radius:8px;margin:8px 0;background:#26221E22}
+#lb{position:fixed;inset:0;background:#000d;display:none;align-items:center;justify-content:center;padding:12px;z-index:9}
+#lb img{max-width:100%;max-height:100%;border-radius:8px}
+</style></head><body>
+<main id="app"><p>A carregar...</p></main>
+<div id="lb"></div>
+<script>
+// Cola aqui o endereço /exec da implementação pública (Qualquer pessoa) do teu Apps Script:
+const API = 'https://script.google.com/macros/s/AKfycbwrTE95fnTqhqkRei0sHhPn4oaOO2h9-0PD20-NAczAt0yP2vUcExNg7I9ghoK8kF-Zjg/exec';
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmt = d => { const x = new Date(d); return isNaN(x) ? esc(d) : x.toLocaleDateString('pt-PT'); };
+const r50 = x => Math.round(x / 50) * 50;
+const rng = x => { const a = r50(x * 0.75), b = r50(x * 1.25); return a === b ? '~' + a + ' km' : 'entre ~' + a + ' e ~' + b + ' km'; };
+const COL = ['#3E7D4F', '#C58A00', '#B03A2E'], LV = ['Bom', 'A acompanhar', 'A trocar'];
+
+function comps(r, since) {
+  return (r.comp || []).map(c => {
+    let note = '';
+    if (c[4] !== null && c[4] !== undefined) {
+      const left = Math.max(0, c[4] - (since || 0));
+      note = left > 0 ? 'Troca prevista: ' + rng(left) + ' (estimativa)' : 'No limite: trocar';
+    } else if (c[2] > 0) note = c[3];
+    return '<div class="cr"><b>' + esc(c[0]) + '</b>' +
+      (c[1] === null ? '<span class="sp"></span>' : '<span class="bar"><i style="width:' + c[1] + '%;background:' + COL[c[2]] + '"></i></span><span class="pc">' + c[1] + '%</span>') +
+      '<span class="lv"><span class="dot" style="background:' + COL[c[2]] + '"></span>' + LV[c[2]] + '</span></div>' +
+      (note ? '<div class="ph">' + esc(note) + '</div>' : '');
+  }).join('');
+}
+
+function render(d, now) {
+  const b = d.bike, revs = d.revs || [];
+  const bname = b.brand + ' ' + b.model + ' (' + b.code + ')';
+  const wl = t => 'https://wa.me/' + d.wa + '?text=' + encodeURIComponent(t);
+  let h = '<div class="sm">Custom Cycle Works</div><h1>' + esc(b.brand) + ' ' + esc(b.model) + '</h1><div class="sm">' + esc(b.code) + '</div>';
+  if (b.photo) h += '<img class="bikeph" data-ph="' + esc(b.photo) + '" data-s="full" alt="">';
+  if (!revs.length) return h + '<p>Ainda sem revisões registadas.</p>';
+  const r0 = revs[0];
+  const uu = Number(r0.usage) || 0;
+  const wks = (now - new Date(r0.date).getTime()) / 604800000;
+  const since = uu > 0 ? Math.round(wks * uu / 10) * 10 : null;
+  const reds = (r0.comp || []).filter(c => c[2] === 2).map(c => c[0]);
+  if (reds.length) {
+    h += '<div class="alert"><b>Atenção de segurança</b><br>Não recomendo usar a bicicleta até resolver: ' + esc(reds.join(', ')) + '.<br><span style="font-size:13px">Estado na revisão de ' + fmt(r0.date) + '. Se já foi resolvido, ignora este aviso.</span>' +
+      (d.wa ? '<br><a href="' + wl('Olá! A minha bicicleta ' + bname + ' tem um aviso de segurança (' + reds.join(', ') + '). Quero marcar uma verificação.') + '" target="_blank" rel="noopener">Marcar agora no WhatsApp</a>' : '') + '</div>';
+  }
+  h += '<h2>Estado em ' + fmt(r0.date) + '</h2><div class="ban">' + esc(r0.sum) + '</div>';
+  if (since !== null) h += '<div class="info">Desde a última revisão: <b>' + rng(since) + '</b> <span class="sm">(estimativa, com base em ' + uu + ' km por semana)</span></div>';
+  if (r0.next) {
+    const nx = Number(r0.next) || 0, falta = Math.max(0, nx - (since || 0));
+    h += '<div class="info"><b>Próxima revisão</b> aos ~' + nx + ' km. ' + (since !== null ? (falta > 0 ? 'Faltam ' + rng(falta) + '.' : 'Já é altura de marcar.') : '') + '</div>';
+  }
+  h += comps(r0, since);
+  const sh = r0.shared || [];
+  if (sh.length) {
+    h += '<h2>Fotos da revisão</h2><div class="gal">' + sh.map(i => '<img data-ph="' + esc(i) + '" data-full="' + esc(i) + '" data-s="thumb" alt="">').join('') + '</div>';
+  }
+  if (d.wa) h += '<a class="btn" href="' + wl('Olá! Quero marcar uma revisão da bicicleta ' + bname + '.') + '" target="_blank" rel="noopener">Marcar revisão no WhatsApp</a>';
+  h += '<h2>Histórico de manutenção</h2>';
+  revs.forEach((r, k) => {
+    const parts = (r.parts || []).map(p => esc(p.name) + (p.ref ? ' (' + esc(p.ref) + ')' : '') + ', ' + esc(p.org || 'Outra')).join('; ');
+    h += '<div class="rv"><b>' + fmt(r.date) + '</b> ' + esc(r.sum) + '<div class="sm">' + esc((r.svc || []).join(', ')) + '</div>' + (parts ? '<div class="sm">Peças: ' + parts + '</div>' : '');
+    if (k > 0 && (r.shared || []).length) h += '<details data-lazy="1"><summary>Ver ' + r.shared.length + ' foto(s)</summary><div class="gal">' + r.shared.map(i => '<span data-lz="' + esc(i) + '"></span>').join('') + '</div></details>';
+    h += '</div>';
+  });
+  return h;
+}
+
+async function call(q) {
+  const r = await fetch(API + '?' + q, { credentials: 'omit', redirect: 'follow' });
+  return r.json();
+}
+
+async function loadImgs(root) {
+  const imgs = [].slice.call(root.querySelectorAll('img[data-ph]:not([src])'));
+  let i = 0;
+  const worker = async () => {
+    while (i < imgs.length) {
+      const el = imgs[i++];
+      try {
+        const j = await call('api=photo&b=' + encodeURIComponent(TOKEN) + '&p=' + encodeURIComponent(el.dataset.ph) + '&s=' + el.dataset.s);
+        if (j.ok && j.src) el.src = j.src;
+      } catch (e) {}
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+}
+
+let TOKEN = '';
+async function main() {
+  const app = document.getElementById('app');
+  TOKEN = new URLSearchParams(location.search).get('b') || '';
+  if (API.indexOf('COLA_AQUI') === 0) { app.innerHTML = '<p>Falta configurar o endereço da página (ver o guia).</p>'; return; }
+  if (TOKEN.length < 16) { app.innerHTML = '<p>Cartão inválido ou código desativado.</p>'; return; }
+  try {
+    const d = await call('api=bike&b=' + encodeURIComponent(TOKEN));
+    if (!d.ok) { app.innerHTML = '<p>Cartão inválido ou código desativado.</p>'; return; }
+    app.innerHTML = render(d, Date.now());
+    loadImgs(app);
+    app.addEventListener('toggle', ev => {
+      const det = ev.target;
+      if (det.tagName === 'DETAILS' && det.open && det.dataset.lazy) {
+        det.dataset.lazy = '';
+        det.querySelectorAll('[data-lz]').forEach(s => {
+          const im = document.createElement('img');
+          im.dataset.ph = s.dataset.lz; im.dataset.full = s.dataset.lz; im.dataset.s = 'thumb'; im.alt = '';
+          s.replaceWith(im);
+        });
+        loadImgs(det);
+      }
+    }, true);
+    app.addEventListener('click', async ev => {
+      const im = ev.target.closest('.gal img');
+      if (!im || !im.dataset.full) return;
+      const lb = document.getElementById('lb');
+      lb.style.display = 'flex'; lb.innerHTML = '<p style="color:#fff">A carregar...</p>';
+      try {
+        const j = await call('api=photo&b=' + encodeURIComponent(TOKEN) + '&p=' + encodeURIComponent(im.dataset.full) + '&s=full');
+        lb.innerHTML = j.ok && j.src ? '<img src="' + j.src + '" alt="">' : '<p style="color:#fff">Não foi possível abrir a foto.</p>';
+      } catch (e) { lb.innerHTML = '<p style="color:#fff">Não foi possível abrir a foto.</p>'; }
+    });
+    document.getElementById('lb').addEventListener('click', () => { document.getElementById('lb').style.display = 'none'; });
+  } catch (e) {
+    app.innerHTML = '<p>Não foi possível carregar. Verifica a ligação e tenta de novo.</p>';
+  }
+}
+if (typeof document !== 'undefined' && document.getElementById('app') && typeof window !== 'undefined') main();
+</script></body></html>
